@@ -1,0 +1,74 @@
+--Establishing a random seed for asteroid generation
+math.randomseed(tick())
+cntrPoint = Vector3.new(0, 2500, 0)
+orbitRad = 2500
+astCount = script.AstCount
+maxCount = 150
+myiq = math.random(150,200)
+
+--Asteroids are randomly generated in the asteroid belt
+--150 asteroids are created in a radius of about 2500 studs from the Sun
+
+function genAst()
+	local rnJesus = math.random(0,2)
+	local sz = 0
+	local x = Instance.new("Part")
+	x.Name = "Ast"
+	x.Material = "Slate"
+	x.Anchored = true
+	if (rnJesus == 0) then
+		x.BrickColor = BrickColor.new("Dirt brown")
+		sz = 80
+	elseif (rnJesus ~= 0) then
+		x.BrickColor = BrickColor.new("Pine Cone")
+		sz = 40
+	end
+	x.Size = Vector3.new(sz*2, sz*1, sz*1)
+	--Each asteroid is randomly displaced within a few hundred studs of the torus of the belt
+	i = 360/(math.random(1, 360))
+	x.Position = Vector3.new(cntrPoint.X + (orbitRad*(math.sin((2*math.pi)/i))) + math.random(-200,200), cntrPoint.Y + math.random(-150,150), cntrPoint.Z + (orbitRad*(math.cos((2*math.pi)/i))) + math.random(-200, 200))
+	--Each asteroid is angled randomly along its three axes 
+	if math.random(1, 3) ~= 3 then	
+		x.CFrame = CFrame.new(x.Position, cntrPoint) * CFrame.Angles(math.rad(math.random(-3,3)*10), math.rad(math.random(-3,3)*10), math.rad(math.random(-3,3)*10))
+	--There is a 1/3 chance of the asteroid being perfectly flat, so some of the asteroids can be landed on and colonized
+	else
+		x.CFrame = CFrame.new(x.Position, cntrPoint)
+	end
+	x.Locked = true
+	x.Parent = game.Workspace
+	astCount.Value = astCount.Value + 1
+end
+
+--The mining cave on each planet is assigned a random purity in order to vary the fuel yield
+function setMines()
+	local planetList = {"Brown", "Cyan", "Mauve", "Olive", "Purple", "Tan", "Yellow"}
+	local set3 = 2
+	local set2 = 3
+	wait(1)
+	for i=1, (set3 + set2) do
+		local newPlnt = math.random(#planetList)
+		local newMine = workspace[planetList[newPlnt]].MineCave:GetChildren()
+		table.remove(planetList, newPlnt)
+		for j=1, #newMine do
+			local multiVal = (i <= set3 and 2 or 1)
+			if newMine[j].Name == "Mineral" then
+				newMine[j].Color = newMine[j].Color:lerp(Color3.fromRGB(255, 255, 255), 0.5*multiVal)
+				newMine[j].MineValue.Value = multiVal + 1
+			end
+		end
+	end
+end
+
+--The script checks if asteroids have been destroyed and generates more to make up for it
+while true do
+	if (astCount.Value == 0) then
+		for i=1, maxCount do
+			genAst()
+			wait()
+		end
+		setMines()
+	elseif (astCount.Value ~= 0) and (astCount.Value < maxCount) then
+		genAst()
+	end
+	wait(300)
+end
