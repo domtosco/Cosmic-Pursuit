@@ -1,0 +1,606 @@
+--Remote Events (Client/Server Interaction)
+local repStor = game:GetService("ReplicatedStorage")
+local remoteR = repStor:WaitForChild("RocketEvent")
+local remoteF = repStor:WaitForChild("FuelEvent")
+local remoteShipF = repStor:WaitForChild("ShipFEvent")
+local remoteSP = repStor:WaitForChild("ShipParent")
+local remoteL = repStor:WaitForChild("LaserEvent")
+local remoteML = repStor:WaitForChild("LaserEvent2")
+
+--Variables
+bin = script
+plane = nil
+local debounce = false
+local controlling = false
+local otherdebounce = false
+local XLR8 = false
+hoverIng = script.Hover
+--local minIng = script.Mining
+--local mineOn = script.MineOn
+visOn = false
+speedy = script.Speed
+empty = false
+
+local plr = script.Parent.Parent
+local char = nil
+local hum = nil
+
+fuelRate = 0
+burnBounce = true
+
+goober = nil
+gooey = nil
+
+--Detecting the Player Character
+while char == nil do
+	wait(1)
+	if (workspace:findFirstChild(plr.Name) ~= char) then
+		char = workspace:findFirstChild(plr.Name)
+		hum = char.Humanoid
+	end
+end
+
+local mouse = plr:GetMouse()
+local contextAction = game:GetService("ContextActionService")
+
+--Generating a Rocket Projectile
+--[[function rocket(pln, spn)
+	local rockFrame = spn.CFrame * CFrame.new(0, 0, -5)
+	local rockCol = BrickColor.new("Medium stone grey")
+	local noob = script.Parent.Parent
+	if noob.TeamColor then
+		rockCol = noob.TeamColor
+	end
+
+	local prjctl = script.Rocket:clone()
+	prjctl.RocketScript.Disabled = false
+	prjctl.Parent = game.Workspace
+	prjctl.Boom.Value = pln.FirePower.Value
+	local rv = pln.BodyVelocity:clone()
+	rv.Parent = prjctl
+	rv.velocity = (prjctl.CFrame.lookVector * 700)
+	local creator_tag = Instance.new("ObjectValue")
+	creator_tag.Value = game.Players.LocalPlayer
+	creator_tag.Name = "creator"
+	creator_tag.Parent = prjctl
+	prjctl.Owner.Value = pln
+	prjctl.Parent = pln
+	
+	remoteR:FireServer(rockFrame, rockCol, pln.FirePower.Value)
+end]]
+
+--Reorienting direction/motion of ship towards the mouse
+function go(target, engine)
+	local dir = (target - engine.Position).unit
+	local specPos = engine.Position + (dir * 1)
+	if movingFast == true or (hoverIng.Value == true and script.Mining.Value == false) then
+		local newFrame = CFrame.new(specPos, specPos + dir)
+		engine:findFirstChild("BodyGyro").maxTorque = Vector3.new(4000, 4000, 4000)
+		engine:findFirstChild("BodyGyro").cframe = newFrame
+		wait(0.1)
+		if engine:findFirstChild("BodyVelocity") and (hoverIng.Value == false) and engine.Parent and engine.Parent.Parent then		
+			engine:findFirstChild("BodyVelocity").velocity = (newFrame.lookVector * engine.Parent.Parent.Speed.Value.X)
+			engine:findFirstChild("BodyVelocity").maxForce = Vector3.new(4e+009,4e+009,4e+009)
+		elseif engine:findFirstChild("HoverVelocity") and (hoverIng.Value == true) and engine.Parent and engine.Parent.Parent then		
+			engine:findFirstChild("HoverVelocity").velocity = (newFrame.lookVector)
+			engine:findFirstChild("HoverVelocity").maxForce = Vector3.new(4e+009,4e+009,4e+009)
+		end
+	end
+end
+
+--Asteroid mining laser
+function mineLoop(meme1, meme2, meme7, ship)
+	local cyc = 1
+	remoteML:FireServer(meme1, meme2, "http://www.roblox.com/asset/?id=115327352", 2, 0.1, meme7, ship)
+	repeat
+		if cyc > 8 then
+			cyc = 1
+		end
+		
+		if cyc == 8 then		
+			remoteShipF:FireServer(ship, 1, 4)
+		end
+		
+		cyc = cyc + 1
+		wait(0.1)
+		gooey.FuelBar.HullFuel.Text = tonumber(string.format("%2.1f", ship.Fuel.Value.X)) .. "/" .. ship.Fuel.Value.Y
+		if script.MineOn.Value == false then
+			break
+		end
+	until script.MineOn.Value == false
+	if (ship.Main:findFirstChild("Beam") ~= nil) then
+		ship.Main.Beam.Buzz:stop()
+		ship.Main.Beam:destroy()
+	end
+end
+
+--Detecting the player's linked spaceship
+function searchPlane(thing)
+	local things = thing:GetChildren()
+	for i=1, #things do
+		if things[i].Name == "Plane" then
+			if things[i]:findFirstChild("Main") and things[i].Main:findFirstChild("Seat")and things[i].Main.Seat:findFirstChild("SeatWeld") then
+				local woot = things[i].Main.Seat.SeatWeld
+				if woot and woot.Part1 == thing:findFirstChild("HumanoidRootPart") then
+					return things[i]
+				end
+			end
+		end
+	end
+	return nil
+end
+
+--Keyboard input for ship controls
+function planeFunction(name, inputState, key)
+	local vehicle = searchPlane(script.Parent.Parent.Character)
+	if vehicle == nil then return end
+	
+	plane = vehicle.Main
+	
+	local engine = vehicle.Main.Engine
+	local bv = engine:findFirstChild("BodyVelocity")
+	local bg = engine:findFirstChild("BodyGyro")
+	local hv = engine:findFirstChild("HoverVelocity")
+	
+	if inputState == Enum.UserInputState.Begin then
+		if key.UserInputType == Enum.UserInputType.MouseButton1 then
+			--Mouse clicks either redirect the ship, or activate the mining laser
+			if (mouse.Target ~= nil) and (mouse.Target.Name == "FuelBulb") and (mouse.Hit.p - engine.Position).magnitude < 100 then
+				if otherdebounce == false and (hoverIng.Value == true or speedy.Value == 0) then
+					--node menu on
+					otherdebounce = true
+					goober.NodeMenu.Visible = true
+					if goober.Swapper.Visible == true then
+						goober.NodeMenu.Swapper.Visible = true
+					end
+				end
+			elseif otherdebounce == true then
+				--node menu off
+				otherdebounce = false
+				goober.NodeMenu.Swapper.Visible = false
+				goober.NodeMenu.Visible = false
+			elseif (not empty) and vehicle ~= nil and debounce == false and otherdebounce == false then
+				debounce = true
+				controlling = true
+				if (script.Mining.Value == false) then
+					while ((vehicle:findFirstChild("Main") ~= nil) and (vehicle.Main:findFirstChild("Engine") ~= nil)) and not empty and (script.Mining.Value == false) do					
+						local engine = vehicle.Main.Engine
+						wait()
+						local pos = mouse.Hit
+						local target = pos.p
+						if engine:findFirstChild("BodyVelocity") or engine:findFirstChild("HoverVelocity") then
+							go(target, engine)
+						end
+						if otherdebounce == true or controlling == false or hum == nil or not hum.Sit or (script.Mining.Value == true) then
+							break
+						end
+					end
+					wait(0.1)
+				elseif (script.Mining.Value == true) and (vehicle.Colorme:findFirstChild("Miner") ~= nil) then
+					if script.MineOn.Value == false then
+						local mineHit = mouse.Hit.p
+						if (mineHit - engine.Position).magnitude < 100 then
+							script.MineOn.Value = true
+							mineLoop(vehicle.Colorme.Miner.CFrame.p, mineHit, script.Parent.Parent.TeamColor, vehicle)
+						end
+					elseif script.MineOn.Value == true then
+						script.MineOn.Value = false
+					end
+				end
+				debounce = false
+			end
+		--X = Slowing down, stopping
+		elseif key.KeyCode == Enum.KeyCode.X and otherdebounce == false then
+			XLR8 = true
+			while XLR8 do
+				if bg ~= nil then
+					bg.maxTorque = Vector3.new(0, 0, 0)
+				end
+				if vehicle.Speed.Value.X == 10 then
+					if (bv ~= nil) then
+						bv.maxForce = Vector3.new(0,0,0)
+					end	
+					movingFast = false
+					vehicle.Speed.Value = Vector3.new(0, vehicle.Speed.Value.Y, vehicle.Speed.Value.Z)
+					gooey.SpeedBar.SpeedNum.Text = 0 .. "/" .. vehicle.Speed.Value.Y
+					gooey.SpeedBar.Frame.Size = UDim2.new(0, 0, 1, 0)
+					engInes = plane.Engine:GetChildren()
+					for i=1, #engInes do
+						if engInes[i].Name == "BodyVelocity" then
+							engInes[i]:Remove()
+						end
+					end
+				end
+				if vehicle.Speed.Value.X > 10 then
+					vehicle.Speed.Value = Vector3.new(vehicle.Speed.Value.X - 10, vehicle.Speed.Value.Y, vehicle.Speed.Value.Z)
+					gooey.SpeedBar.SpeedNum.Text = vehicle.Speed.Value.X .. "/" .. vehicle.Speed.Value.Y
+					gooey.SpeedBar.Frame.Size = UDim2.new((vehicle.Speed.Value.X/vehicle.Speed.Value.Y), 0, 1, 0)
+					if bv ~= nil and hoverIng.Value == false then
+						bv.velocity = (engine.CFrame.lookVector * vehicle.Speed.Value.X)
+						bv.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+					end
+				end
+				speedy.Value = vehicle.Speed.Value.X
+				wait(0.25)
+			end
+		--Z = Speeding up, starting
+		elseif key.KeyCode == Enum.KeyCode.Z and otherdebounce == false and not empty then
+			XLR8 = true
+			while XLR8 and not empty do
+				if vehicle.Speed.Value.X < vehicle.Speed.Value.Y then
+					vehicle.Speed.Value = Vector3.new(vehicle.Speed.Value.X + 10, vehicle.Speed.Value.Y, vehicle.Speed.Value.Z)
+					gooey.SpeedBar.SpeedNum.Text = vehicle.Speed.Value.X .. "/" .. vehicle.Speed.Value.Y
+					gooey.SpeedBar.Frame.Size = UDim2.new((vehicle.Speed.Value.X/vehicle.Speed.Value.Y), 0, 1, 0)
+				end
+				if hoverIng.Value == false then
+					if not (engine:findFirstChild("BodyVelocity")) then
+						newPower = vehicle:findFirstChild("BodyVelocity"):clone()
+						newPower.Parent = plane.Engine
+						bv = newPower
+					end
+					if bv ~= nil then
+						bv.velocity = (engine.CFrame.lookVector * vehicle.Speed.Value.X)
+						bv.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+					end
+					if engine:findFirstChild("BodyPosition") then
+						engine.BodyPosition.maxForce = Vector3.new(0,0,0)
+					end
+				end			
+				movingFast = true
+				speedy.Value = vehicle.Speed.Value.X
+				wait(0.25)
+			end
+		--R = Fire the ship lasers
+		elseif key.KeyCode == Enum.KeyCode.R and (bin.Reload.Value == 0) and (script.Parent.Parent.Character.WeaponsOn.Value == true)and not empty then
+			guns = plane:GetChildren()
+			for w=1, #guns do
+				if string.sub(guns[w].Name, 0, 3) == "Gun" then
+					remoteL:FireServer(guns[w].Position, (engine.CFrame*CFrame.new(0, 0, -250)).p, "rbxassetid://130791043", 1.5, 0.25, 0.05, plr.TeamColor, "hb", 20)
+				end
+			end
+			relode = 3
+			gooey.OffenseBar.BorderSizePixel = 0
+			gooey.OffenseBar.WepSelect.TextTransparency = 0.75
+			for i=1, relode do
+				bin.Reload.Value = (relode + 1) - i
+				wait(1)
+			end
+			gooey.OffenseBar.BorderSizePixel = 1
+			gooey.OffenseBar.WepSelect.TextTransparency = 0
+			bin.Reload.Value = 0
+		--C = Hovering the ship in place (stopping in midair)
+		elseif key.KeyCode == Enum.KeyCode.C and otherdebounce == false and not empty and (script.Mining.Value == false) then
+			if bg ~= nil then
+				bg.maxTorque = Vector3.new(0, 0, 0)
+			end
+			if (hoverIng.Value == false) then
+				if bv then
+					hv = bv
+					bv = nil
+				elseif not (engine:findFirstChild("BodyVelocity")) then
+					newPower = vehicle:findFirstChild("BodyVelocity"):clone()
+					newPower.Parent = plane.Engine
+					hv = newPower
+				end
+				hv.Name = "HoverVelocity"
+				hv.maxForce = Vector3.new(0, 0, 0)
+				engine.BodyPosition.position = plane.Engine.Position
+				engine.BodyPosition.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+				hoverIng.Value = true
+				vehicle.Hovering.Value = true
+			elseif hv and hoverIng.Value then
+				engine.BodyPosition.maxForce = Vector3.new(0, 0, 0)
+				bv = hv
+				hv = nil
+				bv.Name = "BodyVelocity"
+				bv = newPower
+				if bv ~= nil then
+					bv.velocity = (engine.CFrame.lookVector * vehicle.Speed.Value.X)
+					bv.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+					if vehicle.Speed.Value.X == 0 then
+						bv.maxForce = Vector3.new(0,0,0)
+						bv:remove()
+					end
+				end
+				hoverIng.Value = false
+				vehicle.Hovering.Value = false
+			end
+			gooey.SpeedBar.SpeedNum.TextTransparency = (hoverIng.Value and 0.4 or 0)
+			gooey.SpeedBar.SpeedText.TextTransparency = (hoverIng.Value and 0.4 or 0)
+			gooey.SpeedBar.HoverInd.TextTransparency = (hoverIng.Value and 0 or 0.4)
+		--B = Switching between flying and mining mode
+		elseif key.KeyCode == Enum.KeyCode.B and (vehicle.Colorme:findFirstChild("Miner") ~= nil) and hoverIng.Value and not empty then
+			if (script.Mining.Value == true) then
+				script.Mining.Value = false
+				script.MineOn.Value = false
+				vehicle.Colorme.Miner.Transparency = 1
+			elseif (script.Mining.Value == false) then
+				script.Mining.Value = true
+				vehicle.Colorme.Miner.Transparency = 0
+			end
+			gooey.SpeedBar.MineInd.TextTransparency = (script.Mining.Value and 0 or 0.4)
+		--Pulling up the inventory management window
+		elseif key.KeyCode == Enum.KeyCode.V then
+			local packTal = gooey.FuelBar.PackFuel
+			local hullTal = gooey.FuelBar.HullFuel
+			if (goober.Swapper.Visible == false) then
+				goober.Swapper.Visible = true
+				
+				packTal.TextXAlignment = "Center"
+				packTal.TextSize = 12
+				packTal.Position = UDim2.new(0, 150, 0, -53)
+				
+				hullTal.TextXAlignment = "Center"
+				hullTal.TextSize = 12
+				hullTal.Position = UDim2.new(0, 340, 0, -53)
+				if goober.NodeMenu.Visible == true then
+					goober.NodeMenu.Swapper.Visible = true
+				end		
+			elseif (goober.Swapper.Visible == true) then
+				goober.Swapper.Visible = false
+				
+				packTal.TextXAlignment = "Right"
+				packTal.TextSize = 8
+				packTal.Position = UDim2.new(0.5, -2, 0.5, 0)
+				
+				hullTal.TextXAlignment = "Right"
+				hullTal.TextSize = 8
+				hullTal.Position = UDim2.new(1, -2, 0.5, 0)
+				
+				goober.NodeMenu.Swapper.Visible = false
+			end
+		--QWEASD allow for directional control while in hover mode
+		elseif key.KeyCode == Enum.KeyCode.W and hoverIng.Value and not empty and (script.Mining.Value == false) then
+			plane.Engine.BodyPosition.maxForce = Vector3.new(0, 0, 0)
+			hv.velocity = Vector3.new((engine.CFrame.lookVector.X * 10), (engine.CFrame.lookVector.Y * 10), (engine.CFrame.lookVector.Z * 10))
+			hv.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+		elseif key.KeyCode == Enum.KeyCode.A and hoverIng.Value and not empty and (script.Mining.Value == false) then
+			plane.Engine.BodyPosition.maxForce = Vector3.new(0, 0, 0)
+			hv.velocity = (engine.CFrame * CFrame.Angles(0, math.pi/2, 0)).lookVector * 10
+			hv.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+		elseif key.KeyCode == Enum.KeyCode.S and hoverIng.Value and not empty and (script.Mining.Value == false) then
+			plane.Engine.BodyPosition.maxForce = Vector3.new(0, 0, 0)
+			hv.velocity = Vector3.new((engine.CFrame.lookVector.X * -10), (engine.CFrame.lookVector.Y * -10), (engine.CFrame.lookVector.Z * -10))
+			hv.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+		elseif key.KeyCode == Enum.KeyCode.D and hoverIng.Value and not empty and (script.Mining.Value == false) then
+			plane.Engine.BodyPosition.maxForce = Vector3.new(0, 0, 0)
+			hv.velocity = (engine.CFrame * CFrame.Angles(0, math.pi/2, 0)).lookVector * -10
+			hv.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+		elseif key.KeyCode == Enum.KeyCode.Q and hoverIng.Value and not empty and (script.Mining.Value == false) then
+			plane.Engine.BodyPosition.maxForce = Vector3.new(0, 0, 0)
+			hv.velocity = Vector3.new(0, 10, 0)
+			hv.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+		elseif key.KeyCode == Enum.KeyCode.E and hoverIng.Value and not empty and (script.Mining.Value == false) then
+			plane.Engine.BodyPosition.maxForce = Vector3.new(0, 0, 0)
+			hv.velocity = Vector3.new(0, -10, 0)
+			hv.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+		elseif key.KeyCode == Enum.KeyCode.N then
+			if visOn then
+				visOn = false
+				script.Parent.Parent.PlayerGui.ShipKeys.Main.Visible = false
+			elseif not visOn then
+				visOn = true
+				script.Parent.Parent.PlayerGui.ShipKeys.Main.Visible = true
+			end
+		end
+	--When a key is released, the input effects are stopped as well
+	elseif inputState == Enum.UserInputState.End then
+		if key.UserInputType == Enum.UserInputType.MouseButton1 then
+			controlling = false
+		end
+		if (key.KeyCode == Enum.KeyCode.Z) or (key.KeyCode == Enum.KeyCode.X) then
+			XLR8 = false
+		end
+		if ((key.KeyCode == Enum.KeyCode.W) or (key.KeyCode == Enum.KeyCode.A) or (key.KeyCode == Enum.KeyCode.S) or (key.KeyCode == Enum.KeyCode.D) or (key.KeyCode == Enum.KeyCode.Q) or (key.KeyCode == Enum.KeyCode.E)) and hoverIng then
+			if hv then
+				hv.maxForce = Vector3.new(0, 0, 0)
+				engine.BodyPosition.position = plane.Engine.Position
+				engine.BodyPosition.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+			end
+		end
+	end
+end
+
+--Altering the player's ship GUI to match the ship's health value
+function HealthUpdate(hlth, ship)
+	gooey.HealthBar.HealthNum.Text = hlth.X .. "/" .. hlth.Y
+	gooey.HealthBar.Frame.Size = UDim2.new((hlth.X/hlth.Y), 0, 1, 0)
+	if (hlth.X == 0) and (ship ~= nil) then
+		plane = nil
+		fuelRate = 0
+		char = nil
+		hum = nil
+		hoverIng.Value = false
+		speedy.Value = 0
+	end
+end
+
+--Disconnecting the player keyboard input
+function offSwitch()
+	--contextAction:UnbindAllActions()
+	contextAction:UnbindAction("Start")
+	contextAction:UnbindAction("Stop")
+		
+	contextAction:UnbindAction("Hover")
+	contextAction:UnbindAction("Mine")
+	contextAction:UnbindAction("Swap")
+	
+	contextAction:UnbindAction("Forward")
+	contextAction:UnbindAction("Back")
+	contextAction:UnbindAction("Left")
+	contextAction:UnbindAction("Right")
+	contextAction:UnbindAction("Up")
+	contextAction:UnbindAction("Down")
+	
+	contextAction:UnbindAction("Shoot")
+	contextAction:UnbindAction("ClickMove")
+	
+	contextAction:UnbindAction("VisGUI")
+end
+
+--Sitting in a ship seat causes the script to activate ship controls
+function onSit(active, part)
+	if (hum.Sit == true) and (part ~= nil) and (part.Name == "Seat") then
+		if script.Parent.Parent then
+			if part.Parent.Parent.Name == "Plane" then
+				remoteSP:FireServer(part.Parent.Parent, script.Parent.Parent.Character)
+				part.Parent.Parent.Parent = script.Parent.Parent.Character
+			end
+			local playn = searchPlane(script.Parent.Parent.Character)
+			if playn == nil then return end
+			visOn = true
+			goober = script.Parent.Parent.PlayerGui.ShipKeys
+			gooey = goober.Main
+			gooey.Visible = true
+			if gooey.FuelBar.PackFuel.TextSize == 12 then
+				goober.Swapper.Visible = true
+			end
+			
+			script.Parent.Parent.PlayerGui.FuelMeter.Main.Visible = false
+			
+			gooey.SpeedBar.SpeedNum.Text = playn.Speed.Value.X .. "/" .. playn.Speed.Value.Y
+			gooey.SpeedBar.Frame.Size = UDim2.new((playn.Speed.Value.X/playn.Speed.Value.Y), 0, 1, 0)
+			hoverIng.Value = playn.Hovering.Value
+			speedy.Value = playn.Speed.Value.X
+			gooey.SpeedBar.SpeedNum.TextTransparency = (hoverIng.Value and 0.4 or 0)
+			gooey.SpeedBar.SpeedText.TextTransparency = (hoverIng.Value and 0.4 or 0)
+			gooey.SpeedBar.HoverInd.TextTransparency = (hoverIng.Value and 0 or 0.4)
+			
+			gooey.HealthBar.HealthNum.Text = playn.Health.Value.X .. "/" .. playn.Health.Value.Y
+			gooey.HealthBar.Frame.Size = UDim2.new((playn.Health.Value.X/playn.Health.Value.Y), 0, 1, 0)
+			playn.Health.Changed:connect(function(hp) HealthUpdate(playn.Health.Value, playn) end)
+			
+			gooey.FuelBar.PackFuel.Text = tonumber(string.format("%2.1f", plr.FuelTank.Value.X)) .. "/" .. plr.FuelTank.Value.Y
+			gooey.FuelBar.HullFuel.Text = tonumber(string.format("%2.1f", playn.Fuel.Value.X)) .. "/" .. playn.Fuel.Value.Y
+			--gooey.FuelBar.Frame.Size = UDim2.new((plr.FuelTank.Value.X/plr.FuelTank.Value.Y), 0, 1, 0)
+			empty = (plr.FuelTank.Value.X == 0)
+			gooey.BurnOut.Visible = empty
+			wait(1.5)
+			mouse.TargetFilter = game.Workspace.Scylla.TeamDoors
+			
+			contextAction:BindAction("Start", planeFunction, false, Enum.KeyCode.Z)
+			contextAction:BindAction("Stop", planeFunction, false, Enum.KeyCode.X)
+		
+			contextAction:BindAction("Hover", planeFunction, false, Enum.KeyCode.C)
+			contextAction:BindAction("Mine", planeFunction, false, Enum.KeyCode.B)
+			contextAction:BindAction("Swap", planeFunction, false, Enum.KeyCode.V)
+		
+			contextAction:BindAction("Forward", planeFunction, false, Enum.KeyCode.W)
+			contextAction:BindAction("Back", planeFunction, false, Enum.KeyCode.S)
+			contextAction:BindAction("Left", planeFunction, false, Enum.KeyCode.A)
+			contextAction:BindAction("Right", planeFunction, false, Enum.KeyCode.D)
+			contextAction:BindAction("Up", planeFunction, false, Enum.KeyCode.Q)
+			contextAction:BindAction("Down", planeFunction, false, Enum.KeyCode.E)
+		
+			contextAction:BindAction("Shoot", planeFunction, false, Enum.KeyCode.R)
+			contextAction:BindAction("ClickMove", planeFunction, false, Enum.UserInputType.MouseButton1)
+		
+			contextAction:BindAction("VisGUI", planeFunction, false, Enum.KeyCode.N)
+			
+			setRate(nil)
+			
+		end
+	else
+		if script.Parent.Parent then
+			visOn = false
+			script.Parent.Parent.PlayerGui.ShipKeys.Main.Visible = false
+			script.Parent.Parent.PlayerGui.ShipKeys.Swapper.Visible = false
+			script.Parent.Parent.PlayerGui.ShipKeys.NodeMenu.Swapper.Visible = false
+			script.Parent.Parent.PlayerGui.ShipKeys.NodeMenu.Visible = false
+			script.Parent.Parent.PlayerGui.FuelMeter.Main.Visible = true
+			local playyn = script.Parent.Parent.Character:findFirstChild("Plane")
+			if playyn ~= nil then
+				remoteSP:FireServer(playyn, game.Workspace)
+				playyn.Parent = game.Workspace
+			end
+		end
+		--wait()
+		contextAction:UnbindAction("Start")
+		contextAction:UnbindAction("Stop")
+		
+		contextAction:UnbindAction("Hover")
+		contextAction:UnbindAction("Mine")
+		contextAction:UnbindAction("Swap")
+		
+		contextAction:UnbindAction("Forward")
+		contextAction:UnbindAction("Back")
+		contextAction:UnbindAction("Left")
+		contextAction:UnbindAction("Right")
+		contextAction:UnbindAction("Up")
+		contextAction:UnbindAction("Down")
+		
+		contextAction:UnbindAction("Shoot")
+		contextAction:UnbindAction("ClickMove")
+		
+		contextAction:UnbindAction("VisGUI")
+	end
+end
+
+hum.Seated:connect(onSit)
+hum.Died:connect(offSwitch)
+
+plr.CharacterAdded:connect(function(chara)
+	wait(1)
+	char = chara
+	wait(1)
+	hum = char.Humanoid
+	
+	hum.Seated:connect(onSit)
+	hum.Died:connect(offSwitch)
+end)
+
+--Changing the rate of fuel use to match the ship's speed
+function setRate(z)
+	local playn = searchPlane(script.Parent.Parent.Character)
+	if playn == nil then return end
+	fuelRate = (hoverIng.Value and 10 or speedy.Value)
+	--[[if (z == 0) then
+		fuelRate = 0
+	end]]
+	if fuelRate ~= 0 and burnBounce then
+		burnBounce = false
+		repeat wait(3)
+			if playn.Fuel.Value.X > 0 then
+				remoteShipF:FireServer(playn, -1, fuelRate*0.02)
+				local meme = tonumber(string.format("%2.1f", (playn.Fuel.Value.X)))
+				if hum == nil or hum.Sit == false then
+					burnBounce = true
+					break
+				end
+				playn.Fuel.Value = Vector3.new(meme, playn.Fuel.Value.Y, playn.Fuel.Value.Z)
+				gooey.FuelBar.HullFuel.Text = meme .. "/" .. playn.Fuel.Value.Y
+			elseif playn.Fuel.Value.X <= 0 and plr.FuelTank.Value.X > 0 then
+				gooey.FuelBar.HullFuel.Text = 0 .. "/" .. playn.Fuel.Value.Y
+				--local meme = math.floor(10*((plr.FuelTank.Value.X - (fuelRate*0.02))) + 0.5)/10
+				remoteF:FireServer(-1, fuelRate*0.02)
+				local meme2 = tonumber(string.format("%2.1f", (plr.FuelTank.Value.X)))
+				if hum == nil or hum.Sit == false then
+					burnBounce = true
+					break
+				end
+				plr.FuelTank.Value = Vector3.new(meme2, plr.FuelTank.Value.Y, plr.FuelTank.Value.Z)
+				gooey.FuelBar.PackFuel.Text = meme2 .. "/" .. plr.FuelTank.Value.Y
+				--gooey.FuelBar.Frame.Size = UDim2.new((meme/plr.FuelTank.Value.Y), 0, 1, 0)			
+				if meme2 <= 0 then
+					gooey.FuelBar.PackFuel.Text = 0 .. "/" .. plr.FuelTank.Value.Y
+					gooey.BurnOut.Visible = true
+					empty = true
+				end
+			elseif playn.Fuel.Value.X <= 0 and plr.FuelTank.Value.X <= 0 then
+				gooey.FuelBar.HullFuel.Text = 0 .. "/" .. playn.Fuel.Value.Y
+				gooey.FuelBar.PackFuel.Text = 0 .. "/" .. plr.FuelTank.Value.Y
+				gooey.BurnOut.Visible = true
+				empty = true
+			end
+			goober.Swapper.PackFuel.Value = plr.FuelTank.Value
+			goober.Swapper.HullFuel.Value = playn.Fuel.Value
+			if fuelRate == 0 then
+				burnBounce = true
+				break
+			end
+		until fuelRate == 0
+	end
+end
+
+hoverIng.Changed:connect(setRate)
+speedy.Changed:connect(setRate)
