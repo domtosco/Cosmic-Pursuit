@@ -1,0 +1,127 @@
+--The remote which activates the stargate after the player has entered an address
+local repStor = game:GetService("ReplicatedStorage")
+local remote = repStor:WaitForChild("GateEvent")
+
+numero = script.Parent.ChevNum
+gateAdrs = script.Parent.Address
+closeBy = script.Parent.CloseBy
+closeGate = script.Parent.CloseGate
+busySignal = script.Parent.BusySignal
+fuelSignal = script.Parent.FuelSignal
+fuelCost = script.Parent.FuelCost
+
+--Finding a stargate that matches the input address
+function getGate(adrs)
+	local gates = workspace.GateNetwork:GetChildren()
+	local dialed = nil
+	for j=1, #gates do
+		if gates[j].className == "Model" then
+			if gates[j].Address.Value == adrs then
+				dialed = gates[j]
+			end
+		end
+	end
+	return dialed
+end
+
+--Checking if the player has enough fuel
+function checkFuel(amt)
+	local plyr = script.Parent.Parent.Parent
+	local semit = plyr:findFirstChild("FuelTank")
+	if semit ~= nil then
+		if semit.Value.X < amt then
+			fuelSignal.Value = true
+		else
+			fuelSignal.Value = false
+		end
+	end
+end
+
+--Each time a key button is clicked, it is added to the seven-digit address being displayed
+function clicker(button)
+	if numero.Value < 7 then
+		if numero.Value == 0 then
+			gateAdrs.Value = (button.Symbol.Value)
+		elseif numero.Value > 0 then
+			gateAdrs.Value = (gateAdrs.Value..button.Symbol.Value)
+		end
+		numero.Value = (numero.Value + 1)
+		local chevRon = script.Parent:findFirstChild("Chevron"..numero.Value)
+		chevRon.Image = button.Image
+		if numero.Value == 7 then
+			local dialTo = getGate(gateAdrs.Value)
+			local dialFrom = closeGate.Value
+			if dialTo ~= nil and dialFrom ~= nil and dialTo ~= dialFrom then
+				fuelCost.Value = tonumber(string.format("%2.1f", ((dialTo.Portal.Position - dialFrom.Portal.Position).magnitude / 150)))
+				script.Parent.Status2.TextLabel.Text = "Fuel Cost: " .. fuelCost.Value
+			end
+		end
+	end
+end
+
+--The GUI determines how much fuel is needed to create a wormhole between the two gates
+function fuelUpdate(val)
+	if numero.Value == 7 then
+		local dialTo = getGate(gateAdrs.Value)
+		local dialFrom = closeGate.Value
+		if dialTo ~= nil and dialFrom ~= nil and dialTo ~= dialFrom then
+			fuelCost.Value = tonumber(string.format("%2.1f", ((dialTo.Portal.Position - dialFrom.Portal.Position).magnitude / 150)))
+			script.Parent.Status2.TextLabel.Text = "Fuel Cost: " .. fuelCost.Value
+		elseif dialFrom == nil or dialTo == nil then
+			fuelCost.Value = 0
+			script.Parent.Status2.TextLabel.Text = "Fuel Cost: ___"
+		end
+	end
+end
+
+--The nearby stargate is sent the address for the target gate
+--But first, the required fuel is removed from the player backpack
+--The stargate has a separate script which connects the two gates with a wormhole
+function dialOut()
+	local gateID = gateAdrs.Value
+	local tripCost = fuelCost.Value
+	local tarGate = getGate(gateID)
+	clearOut()
+	if (closeBy.Value) and (workspace.GateNetwork.LockDown.Value ~= true) then
+		local starGate = closeGate.Value
+		if (starGate ~= false) and starGate.Connected.Value == false then
+			if (gateID ~= 0) and (gateID ~= starGate.Address.Value) and (tarGate ~= nil) then
+				busySignal.Value = tarGate.Connected.Value
+				checkFuel(tripCost)
+				if busySignal.Value == false and fuelSignal.Value == false then		
+					remote:FireServer(starGate, gateID, script.Parent.Parent.Parent, tripCost)
+				end
+				wait(3)
+				busySignal.Value = false
+				fuelSignal.Value = false
+			end
+		end
+	end
+end
+
+--Clearing out the symbols that have been dialed in
+function clearOut()
+	gateAdrs.Value = ""
+	numero.Value = 0
+	fuelCost.Value = 0
+	local gateHub = script.Parent:GetChildren()
+	for i=1, #gateHub do
+		local whatWord = gateHub[i].Name
+		if string.sub(whatWord, 1, 7) == "Chevron" then
+			gateHub[i].Image = "http://www.roblox.com/asset/?id=22416261"
+		end
+	end
+	script.Parent.Status2.TextLabel.Text = "Fuel Cost: ___"
+end
+buttons = script.Parent:GetChildren()
+
+--Detecting when any key buttons have been clicked
+for i=1, #buttons do
+	if buttons[i].className == "ImageButton" then
+		buttons[i].MouseButton1Down:connect(function(clicky) clicker(buttons[i]) end)
+	end
+end
+
+script.Parent.CloseGate.Changed:connect(fuelUpdate)
+script.Parent.DialButton.MouseButton1Down:connect(dialOut)
+script.Parent.ClearButton.MouseButton1Down:connect(clearOut)
