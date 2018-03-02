@@ -1,0 +1,98 @@
+cooldown = false
+movin = false
+flaggy = script.Parent.Parent.Flag
+
+--The flag is claimed, and a cooldown effect prevents reclaimation for 10 seconds
+function claimIt(col)
+	script.Parent.Parent.Flag.BrickColor = col
+	script.Parent.Parent.FalseSpawn.BrickColor = col
+	script.Parent.Pop:play()
+	z = game.Teams:GetChildren()
+	for i=1, #z do
+		if z[i].TeamColor == col then
+			theTeam = z[i].Name
+		end
+	end
+	if theTeam then
+		cooldown = true
+		script.Parent.BrickColor = BrickColor.new("Really black")
+		addWorld(theTeam, col)
+		for k=1, 10 do
+			script.Parent.Transparency = 0.2
+			wait(0.25)
+			script.Parent.Transparency = 0
+			wait(0.25)
+		end
+		script.Parent.BrickColor = BrickColor.new("Dark stone grey")
+		cooldown = false
+	end
+end
+
+--The player must stand at the flagstand to capture the flag
+--The flag gradually slides down the flagpole, changes color, and slides back up to the top
+function colorchange(hit)
+	if cooldown == false and hit.Parent ~= game.Workspace then
+		if hit.Parent:findFirstChild("Humanoid") and (hit.Parent.Humanoid.Health > 0) then
+			local color = game.Players:GetPlayerFromCharacter (hit.Parent)
+			local oldcol = script.Parent.Parent.Flag.BrickColor
+			if color.TeamColor ~= oldcol then
+				movin = true
+				cooldown = true
+				ploos = 1
+				script.Parent.Draw:play()
+				script.Parent.Draw.Looped = true
+				meshy = flaggy.Mesh
+				while movin do
+					wait(0.05)
+					if ((hit.Position - script.Parent.Position).magnitude < 8) and (hit.Parent) and (hit.Parent.Humanoid.Health > 0) then
+						meshy.Offset = Vector3.new(-0.1,meshy.Offset.y + (ploos * -0.125),0)
+						if meshy.Offset.y == -9.5 then
+							flaggy.BrickColor = color.TeamColor
+							ploos = -1
+						end
+						if (flaggy.Mesh.Offset.y == 0) and (flaggy.BrickColor == color.TeamColor) then
+							script.Parent.Draw:stop()
+							claimIt(color.TeamColor)
+							movin = false
+							cooldown = false
+							break
+						end
+					else
+						flaggy.Mesh.Offset = Vector3.new(-0.1,0,0)
+						flaggy.BrickColor = oldcol
+						script.Parent.Draw:stop()
+						movin = false
+						cooldown = false
+					end
+				end
+			end
+		end
+	end
+end
+
+script.Parent.Touched:connect(colorchange)
+
+--The captured flag causes the planet to be added to the team's territory
+function addWorld(tribe, colora)
+	e = game.Workspace.PossibleHomes:GetChildren()
+	for i=1, #e do
+		if e[i].className == "Model" then
+			f = e[i]:GetChildren()
+			if f then
+				for j=1, #f do
+					if f[j].Name == script.Parent.Planet.Value then
+						thisPlace = f[j]
+					end
+				end
+			end
+		end
+	end
+	if thisPlace then
+		thisPlace.Parent = game.Workspace.PossibleHomes:findFirstChild(tribe)
+		local newnot = Instance.new("StringValue")
+		newnot.Value = tribe.. " has captured the "..script.Parent.Planet.Value.." planet"
+		newnot.Name = colora.Name
+		newnot.Parent = game.ServerScriptService.NotifyHub
+		script.Parent.Parent.Parent.Capture:play()
+	end
+end
