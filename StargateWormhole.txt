@@ -1,0 +1,243 @@
+local repStor = game:GetService("ReplicatedStorage")
+local remoteSG = repStor:WaitForChild("ShipGateEvent")
+local remoteTravel = repStor:WaitForChild("GatePlayer")
+
+ehColor = Vector3.new(0, 0.7, 0.9)
+kaColor = Vector3.new(1, 1, 1)
+portal1 = false
+portal2 = false
+VIPlevel = 0
+WeaponsAllow = true
+
+--The stargate receives an input address from a player and activates both itself and the other stargate
+--Both stargates spin around and light up, a wormhole erupts and stabilizes inside them, and after 30 seconds the portals close and the lights dim
+function dial()
+	if script.Activate.Value == true then
+		script.Activate.Value = false
+		tarGate = false
+		starGate = script.Parent
+		gateID = script.TargetAddress.Value
+		script.TargetAddress.Value = 0
+		if (starGate ~= false) and starGate.Connected.Value == false then
+			if (gateID ~= 0) and (gateID ~= starGate.Address.Value) then
+				tarGates = workspace.GateNetwork:GetChildren()
+				for i=1, #tarGates do
+					if tarGates[i].Name == "Stargate" and (tarGates[i]:findFirstChild("Address").Value == gateID) then
+						tarGate = tarGates[i]
+					end
+				end
+				if (tarGate ~= false) and (tarGate:findFirstChild("Connected").Value == false) then
+					starGate.Connected.Value = true
+					tarGate.Connected.Value = true
+					starGate.Connected.OutGoing.Value = true
+					tarGate.Connected.OutGoing.Value = false
+					chevrons1 = starGate.Chevrons
+					chevrons2 = tarGate.Chevrons
+					lights1 = starGate.Lights:GetChildren()
+					lights2 = tarGate.Lights:GetChildren()
+					beams1 = starGate.Beams:GetChildren()
+					beams2 = tarGate.Beams:GetChildren()
+					portal1 = starGate.Portal
+					portal2 = tarGate.Portal
+					port1Pos = portal1.CFrame
+					port2Pos = portal2.CFrame
+					gateHalo1 = portal1.Halo
+					gateHalo2 = portal2.Halo
+					VIPlevel = tarGate.VIPlevel.Value
+					WeaponsAllow = tarGate.WeaponsAllow.Value
+					for i=1, #lights1 do
+						lights1[i].Transparency = 0
+					end
+					for j=1, #lights2 do
+						lights2[j].Transparency = 0
+					end
+					wait(1)
+					for z=1, 7 do
+						chevrons1:findFirstChild("Chevron"..z).Chevron.Transparency = 0
+						chevrons1:findFirstChild("Chevron"..z).Chev.Transparency = 0
+						chevrons2:findFirstChild("Chevron"..z).Chevron.Transparency = 0
+						chevrons2:findFirstChild("Chevron"..z).Chev.Transparency = 0
+						chevrons1:findFirstChild("Chevron"..z).Chevron.Material = "Neon"
+						chevrons1:findFirstChild("Chevron"..z).Chev.Material = "Neon"
+						chevrons2:findFirstChild("Chevron"..z).Chevron.Material = "Neon"
+						chevrons2:findFirstChild("Chevron"..z).Chev.Material = "Neon"
+						starGate.Platform.Base.SlashSound:play()
+						tarGate.Platform.Base.SlashSound:play()
+						wait(1)
+					end
+					starGate.Platform.Base.OnSound:play()
+					tarGate.Platform.Base.OnSound:play()
+					for i=1, 5 do
+						for p=1, #beams1 do
+							if beams1[p].Name == "Cylinder" then
+								beams1[p].Mesh.Offset = Vector3.new(0, (beams1[p].Mesh.Offset.Y - 0.25), 0)
+							end
+						end
+						for r=1, #beams2 do
+							if beams2[r].Name == "Cylinder" then
+								beams2[r].Mesh.Offset = Vector3.new(0, (beams2[r].Mesh.Offset.Y - 0.25), 0)
+							end
+						end
+						wait(0.1)
+					end
+					for s=1, 5 do
+						for q=1, #beams1 do
+							if beams1[q].Name == "Beam" then
+								beams1[q].Mesh.Offset = Vector3.new(0, (beams1[q].Mesh.Offset.Y - 1.3), 0)
+								beams1[q].Mesh.Scale = Vector3.new(0.5, (beams1[q].Mesh.Scale.Y - 2.6), 0.5)
+							end
+						end
+						for t=1, #beams2 do
+							if beams2[t].Name == "Beam" then
+								beams2[t].Mesh.Offset = Vector3.new(0, (beams2[t].Mesh.Offset.Y - 1.3), 0)
+								beams2[t].Mesh.Scale = Vector3.new(0.5, (beams2[t].Mesh.Scale.Y - 2.6), 0.5)
+							end
+						end
+						wait(0.1)
+					end
+					portal1.Color = Color3.new(kaColor.X, kaColor.Y, kaColor.Z)
+					portal2.Color = Color3.new(kaColor.X, kaColor.Y, kaColor.Z)
+					portal1.Transparency = 0
+					portal2.Transparency = 0
+					portal1.Shape = "Ball"
+					portal2.Shape = "Ball"
+					portal1.Kawoosh.Value = true
+					portal2.Kawoosh.Value = true
+					gateHalo1.Enabled = true
+					gateHalo2.Enabled = true
+					for w=1, 5 do
+						portal1.Size = Vector3.new((5 * w), (5 * w), (5 * w))
+						portal2.Size = Vector3.new((5 * w), (5 * w), (5 * w))
+						portal1.CFrame = port1Pos
+						portal2.CFrame = port2Pos
+						wait(0.1)
+					end
+					for y=1, #beams1 do
+						beams1[y].Mesh.Offset = Vector3.new(0, 0, 0)
+						if beams1[y].Name == "Beam" then
+							beams1[y].Mesh.Scale = Vector3.new(0.5, 0, 0.5)
+						end
+					end
+					for u=1, #beams2 do
+						beams2[u].Mesh.Offset = Vector3.new(0, 0, 0)
+						if beams2[u].Name == "Beam" then
+							beams2[u].Mesh.Scale = Vector3.new(0.5, 0, 0.5)
+						end
+					end
+					portal1.Shape = "Block"
+					portal2.Shape = "Block"
+					for e=1, 5 do
+						portal1.Size = Vector3.new(20, 20, (26 - (5 * e)))
+						portal2.Size = Vector3.new(20, 20, (26 - (5 * e)))
+						portal1.Mesh.Scale = Vector3.new((25/20), (25/20), 1)
+						portal2.Mesh.Scale = Vector3.new((25/20), (25/20), 1)
+						portal1.Color = Color3.new(kaColor.X - ((kaColor.X - ehColor.X)*(e/5)), kaColor.Y - ((kaColor.Y - ehColor.Y)*(e/5)), kaColor.Z - ((kaColor.Z - ehColor.Z)*(e/5)))
+						portal2.Color = Color3.new(kaColor.X - ((kaColor.X - ehColor.X)*(e/5)), kaColor.Y - ((kaColor.Y - ehColor.Y)*(e/5)), kaColor.Z - ((kaColor.Z - ehColor.Z)*(e/5)))
+						portal1.CFrame = port1Pos
+						portal2.CFrame = port2Pos
+						wait(0.1)
+					end
+					portal1.Kawoosh.Value = false
+					portal2.Kawoosh.Value = false
+					if (VIPlevel > 0) then
+						portal1.VIPflash.Level.Value = VIPlevel
+						portal1.VIPflash.Disabled = false
+						portal2.VIPflash.Level.Value = VIPlevel
+						portal2.VIPflash.Disabled = false
+					end
+					starGate.Direction.In.Transparency = 0
+					starGate.Direction.Out.Transparency = 1
+					starGate.Direction.In.Material = "Neon"
+					tarGate.Direction.In.Transparency = 1
+					tarGate.Direction.Out.Transparency = 0
+					tarGate.Direction.Out.Material = "Neon"
+					wait(29)
+					starGate.Platform.Base.OffSound:play()
+					tarGate.Platform.Base.OffSound:play()
+					wait(1)
+					for o=1, 5 do
+						portal1.Size = Vector3.new((21 - (4 * o)), (21 - (4 * o)), 1)
+						portal2.Size = Vector3.new((21 - (4 * o)), (21 - (4 * o)), 1)
+						portal1.Mesh.Scale = Vector3.new((25/20), (25/20), 1)
+						portal2.Mesh.Scale = Vector3.new((25/20), (25/20), 1)
+						portal1.CFrame = port1Pos
+						portal2.CFrame = port2Pos
+						wait(0.1)
+					end
+					portal1.VIPflash.Disabled = true
+					portal2.VIPflash.Disabled = true
+					portal1.Mesh.Scale = Vector3.new(1, 1, 1)
+					portal2.Mesh.Scale = Vector3.new(1, 1, 1)
+					portal1.Transparency = 1
+					portal2.Transparency = 1
+					gateHalo1.Enabled = false
+					gateHalo2.Enabled = false
+					for p=1, 7 do
+						chevrons1:findFirstChild("Chevron"..p).Chevron.Transparency = 0.5
+						chevrons1:findFirstChild("Chevron"..p).Chev.Transparency = 0.5
+						chevrons2:findFirstChild("Chevron"..p).Chevron.Transparency = 0.5
+						chevrons2:findFirstChild("Chevron"..p).Chev.Transparency = 0.5
+						chevrons1:findFirstChild("Chevron"..p).Chevron.Material = "Plastic"
+						chevrons1:findFirstChild("Chevron"..p).Chev.Material = "Plastic"
+						chevrons2:findFirstChild("Chevron"..p).Chevron.Material = "Plastic"
+						chevrons2:findFirstChild("Chevron"..p).Chev.Material = "Plastic"
+					end
+					for a=1, #lights1 do
+						lights1[a].Transparency = 0.5
+					end
+					for b=1, #lights2 do
+						lights2[b].Transparency = 0.5
+					end
+					starGate.Direction.In.Transparency = 0.5
+					starGate.Direction.Out.Transparency = 0.5
+					starGate.Direction.In.Material = "Plastic"
+					tarGate.Direction.In.Transparency = 0.5
+					tarGate.Direction.Out.Transparency = 0.5
+					tarGate.Direction.Out.Material = "Plastic"
+					starGate.Connected.Value = false
+					tarGate.Connected.Value = false
+					starGate.Connected.OutGoing.Value = false
+					tarGate.Connected.OutGoing.Value = false
+					VIPlevel = 0
+					WeaponsAllow = true
+				end
+			end
+		end
+	end
+end
+
+--The script either teleports the player to the other stargate, or disintegrates them (depending on if the wormhole has stabilized)
+function teleORdie(hit)
+	if hit.Anchored == false and (script.Parent.Portal.Transparency == 0) then
+		if (script.Parent.Portal.Kawoosh.Value == false) and (script.Parent.Connected.OutGoing.Value == true) then
+			if (hit.Parent ~= game.Workspace) then
+				if (hit.Parent:findFirstChild("Humanoid")) then
+					if game.Players:findFirstChild(hit.Parent.Name) then
+						local posVIP = game.Players:findFirstChild(hit.Parent.Name)
+						if posVIP.VIPlevel and (posVIP.VIPlevel.Value >= VIPlevel) then
+							if ((hit.Parent:findFirstChild("Plane")) and (hit.Parent.Humanoid.Sit)) and (tarGate.ShipsAllow.Value == true) then
+								local flyguy = hit.Parent:findFirstChild("Plane")
+								if flyguy ~= nil then
+									local engine = flyguy.Main.Engine
+									local newPos = (portal2.Position + Vector3.new(engine.ShipSize.Value.Z/2, 0, 0))
+									local newFrame = CFrame.new(newPos, (newPos + portal2.CFrame.lookVector))
+									remoteSG:FireClient(posVIP, flyguy, engine, newFrame)
+								end
+							elseif not (hit.Parent.Humanoid.Sit) then
+								remoteTravel:FireClient(posVIP, CFrame.new(portal2.Position, (portal2.Position + portal2.CFrame.lookVector)))
+							end
+							if hit.Parent:findFirstChild("WeaponsOn") then
+								hit.Parent.WeaponsOn.Value = WeaponsAllow
+							end
+						end
+					end
+				end
+			end
+		elseif (script.Parent.Portal.Kawoosh.Value == true) then
+			hit.Parent = nil
+		end
+	end
+end
+
+script.Parent.Portal.Touched:connect(teleORdie)
+script.Activate.Changed:connect(dial)
