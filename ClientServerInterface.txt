@@ -1,0 +1,362 @@
+local repStor = game:GetService("ReplicatedStorage")
+
+--Chat Message Notifications
+local remoteN = repStor:WaitForChild("MsgEvent")
+
+function sendOut(msg)
+	if msg.className == "StringValue" then
+		remoteN:FireAllClients(msg.Value, BrickColor.new(msg.Name))
+		wait()
+		msg:remove()
+	end
+end
+
+script.ChildAdded:connect(sendOut)
+
+--Sending Credits, relaying a transaction message
+local remoteP = repStor:WaitForChild("PayEvent")
+
+remoteP.OnServerEvent:connect(function(p, p2, amt)
+	p.leaderstats.Credits.Value = p.leaderstats.Credits.Value - amt
+	p2.leaderstats.Credits.Value = p2.leaderstats.Credits.Value + amt
+	remoteP:FireClient(p2, p, amt)
+end)
+
+--Activating Stargate
+local remoteG = repStor:WaitForChild("GateEvent")
+
+remoteG.OnServerEvent:connect(function(p, starGate, gateID, plyr, fuelCost)
+	if plyr ~= nil and plyr:findFirstChild("FuelTank") then
+		if plyr.FuelTank.Value.X >= fuelCost then
+			plyr.FuelTank.Value = Vector3.new(plyr.FuelTank.Value.X - fuelCost, plyr.FuelTank.Value.Y, plyr.FuelTank.Value.Z)
+			starGate.GateScript:findFirstChild("TargetAddress").Value = gateID
+			starGate.GateScript:findFirstChild("Activate").Value = true
+		end
+	end
+end)
+
+--Spawning a new Ship
+local remoteSS2 = repStor:WaitForChild("ShipSpawn")
+
+local clickyPos = nil
+local clickyLook = nil
+
+function weldit(mdl, engine)
+	local contents = mdl:GetChildren()
+	for j=1, #contents do
+		if contents[j].className == "Model" then
+			weldit(contents[j], engine)
+		elseif contents[j].Name ~= "Engine" then
+			if (contents[j].className == "Part") or (contents[j].className == "WedgePart") or (contents[j].className == "UnionOperation") or (contents[j].className == "Seat") then
+				local w = Instance.new("Weld")
+				w.Part0 = engine
+				w.Part1 = contents[j]
+				w.C0 = engine.CFrame:inverse() * CFrame.new(engine.Position)
+				w.C1 = contents[j].CFrame:inverse() * CFrame.new(engine.Position)
+				w.Parent = game.JointsService
+				--[[game.JointsService.ChildRemoved:connect(function(c)
+					if (c == w) then reweld(engine, contents[j]) end
+				end)]]
+				contents[j].Anchored = false
+			end	
+		end
+	end
+end
+
+remoteSS2.OnServerEvent:connect(function(p, shipType, teamCol, hangarMdl)
+	if hangarMdl and hangarMdl:findFirstChild("Plane") then
+		hangarMdl.Plane:Remove()
+	end
+	clickyPos = hangarMdl.Spawner.Button1.Position
+	clickyLook = hangarMdl.Spawner.Button1.CFrame.lookVector
+	wait(0.1)
+	local newShip = game.ServerStorage.ShipRoster[shipType]:clone()
+	local newPos = Vector3.new(clickyPos.x, (clickyPos.y + newShip.Main.Engine.ShipSize.Value.y/2 - 2.1), clickyPos.z) + (clickyLook * (newShip.Main.Engine.ShipSize.Value.z/2 + 5))
+	newShip:SetPrimaryPartCFrame(CFrame.new(newPos, newPos + clickyLook))
+	newShip.Name = "Plane"
+	weldit(newShip, newShip.Main.Engine)
+	newShip.Parent = hangarMdl
+	local colorees = newShip.Colorme:GetChildren()
+	for q=1, #colorees do
+		colorees[q].BrickColor = teamCol
+	end
+	newShip.Main.Engine.Anchored = false
+end)
+
+--Changing the ship's parent
+local remoteSP = repStor:WaitForChild("ShipParent")
+
+remoteSP.OnServerEvent:connect(function(p, ship, newDaddy)
+	ship.Parent = newDaddy
+end)
+
+--Changing the player character's uniform
+local remoteS = repStor:WaitForChild("SuitEvent")
+
+remoteS.OnServerEvent:connect(function(p, team, onOff, colT)
+	local c = p.Character
+	local pieces = c:GetChildren()
+	if onOff then
+		local newMod = Instance.new("Model")
+		newMod.Name = p.Name
+		newMod.Parent = script.U
+		for i=1,#pieces do
+			if pieces[i].className == "Hat" or pieces[i].className == "Accessory" or pieces[i].className == "Shirt" or pieces[i].className == "Pants" or pieces[i].className == "ShirtGraphic" then
+				pieces[i].Parent = newMod
+			elseif pieces[i].Name == "Torso" then
+				local t = pieces[i]:GetChildren()
+				for j=1, #t do
+					if t[j].className == "Decal" then
+						t[j].Parent = newMod
+					end
+				end
+			elseif pieces[i].className == "BodyColors" then
+				local back = pieces[i]:clone()
+				back.Parent = newMod
+				pieces[i].HeadColor = colT
+				pieces[i].LeftArmColor = colT
+				pieces[i].LeftLegColor = colT
+				pieces[i].RightArmColor = colT
+				pieces[i].RightLegColor = colT
+				pieces[i].TorsoColor = colT
+			end
+		end
+		local wardrobe = script:findFirstChild(team)
+		if wardrobe then
+			wardrobe.Shirt:clone().Parent = c
+			wardrobe.Pants:clone().Parent = c
+			wardrobe.Hat:clone().Parent = c
+		end
+	elseif not onOff then
+		for i=1,#pieces do
+			if pieces[i].className == "Hat" or pieces[i].className == "Accessory" or pieces[i].className == "Shirt" or pieces[i].className == "Pants" or pieces[i].className == "BodyColors" then
+				pieces[i]:remove()
+			end
+		end
+		local store = script.U:findFirstChild(p.Name)
+		if store then
+			local wardrobe = store:GetChildren()
+			for l=1, #wardrobe do
+				if wardrobe[l].className == "Hat" or wardrobe[l].className == "Accessory" or wardrobe[l].className == "Shirt" or wardrobe[l].className == "Pants" or wardrobe[l].className == "BodyColors" or wardrobe[l].className == "ShirtGraphic" then
+					wardrobe[l].Parent = c
+				elseif wardrobe[l].className == "Decal" then
+					wardrobe[l].Parent = c.Torso
+				end
+			end
+			store:remove()
+		end
+	end
+end)
+
+--Creating a Laser projectile
+local remoteL = repStor:WaitForChild("LaserEvent")
+
+remoteL.OnServerEvent:connect(function(playa, brlpos, hitPos, soundID, pitch, volume, duration, coulour, mineHurt, dmg)
+	local spread = Vector3.new(math.random(-100,100)/60,math.random(-100,100)/60,math.random(-100,100)/60)
+	local ray = Ray.new(brlpos,((hitPos - brlpos).unit) * ((mineHurt == "m" and 10) or 250))
+	local part, pos = workspace:FindPartOnRay(ray, playa.Character,false,true)
+	
+	local beam = Instance.new("Part", workspace)
+	beam.BrickColor = coulour
+	beam.FormFactor = "Custom"
+	beam.Material = "Neon"
+	beam.Anchored = true
+	beam.Locked = true
+	beam.CanCollide = false
+	
+	local distance = (brlpos - pos).magnitude
+	local mesh = Instance.new("BlockMesh")
+	mesh.Scale = Vector3.new(1,1,distance * 5)
+	mesh.Parent = beam
+	beam.Size = Vector3.new(0.2,0.2,0.2)
+	beam.CFrame = CFrame.new(brlpos ,pos) * CFrame.new(0, 0, -distance / 2)
+	game.Debris:AddItem(beam, duration)
+	
+	if soundID ~= 0 then
+		local party = Instance.new("Part")
+		party.Size, party.CanCollide, party.Anchored, party.Transparency, party.Locked = Vector3.new(0.2, 0.2, 0.2), false, true, 1, true
+		party.Position = pos + Vector3.new(0, 0.5, 0)
+		if mineHurt == "hb" then
+			local mash = Instance.new("SpecialMesh")
+			mash.MeshType = "Sphere"
+			mash.Scale = Vector3.new(25, 25, 25)
+			mash.Parent = party
+			party.BrickColor = coulour
+			party.Transparency = 0.5
+			party.Material = "Neon"
+		end
+		local soundy = Instance.new("Sound")
+		soundy.SoundId = soundID
+		soundy.PlaybackSpeed = pitch
+		soundy.Volume = volume
+		soundy.MaxDistance = 100
+
+		party.Parent = workspace
+		soundy.Parent = party
+		
+		soundy:play()
+		
+		game.Debris:AddItem(party, soundy.TimeLength)
+	end
+	
+	if part then
+		if (mineHurt == "h" or mineHurt == "hb") and (part.Parent.Name ~= playa.Name) then
+			local humanoid = part.Parent:FindFirstChild("Humanoid")
+			if humanoid == nil then
+				humanoid = part.Parent.Parent:FindFirstChild("Humanoid")
+			end
+			if humanoid ~= nil then
+				humanoid:TakeDamage(dmg)
+				if humanoid.Health <= 0 then
+					local creator = Instance.new("ObjectValue")
+					creator.Value = game.Players:findFirstChild(script.Parent.Parent.Name)
+					creator.Name = "creator"
+					creator.Parent = humanoid
+				end
+			elseif part.Parent.Parent and part.Parent.Parent.Name == "Plane" then
+				local hlth = part.Parent.Parent:findFirstChild("Health")
+				if hlth ~= nil then
+					local newHp = hlth.Value.X - dmg
+					if newHp < 0 then
+						newHp = 0
+					end
+					hlth.Value = Vector3.new(newHp, hlth.Value.Y, hlth.Value.Z)
+				end
+			end
+		elseif mineHurt == "m" then
+			if part.Name == "Mineral" and dmg == 8 then
+				if part:findFirstChild("MineValue") ~= nil then
+					local newMin = playa.FuelTank.Value.X + part.MineValue.Value
+					if newMin > playa.FuelTank.Value.Y then
+						newMin = playa.FuelTank.Value.Y
+					end
+					playa.FuelTank.Value = Vector3.new(newMin, playa.FuelTank.Value.Y, playa.FuelTank.Value.Z)
+				end
+			end
+		elseif mineHurt == "sm" then
+			if part.Name == "Ast" and dmg == 8 then
+				local chara = playa.Character
+				if chara:findFirstChild("Plane") ~= nil then
+				--if part:findFirstChild("MineValue") ~= nil then
+					local newMin = chara.Plane.Fuel.Value.X + 4 --part.MineValue.Value
+					if newMin > chara.Plane.Fuel.Value.Y then
+						newMin = chara.Plane.Fuel.Value.Y
+					end
+					chara.Plane.Fuel.Value = Vector3.new(newMin, chara.Plane.Fuel.Value.Y, chara.Plane.Fuel.Value.Z)
+				--end
+				end
+			end
+		end
+	end
+end)
+
+--Create Laser2
+local remoteL2 = repStor:WaitForChild("LaserEvent2")
+
+remoteL2.OnServerEvent:connect(function(playa, brlpos, hitPos, soundID, pitch, volume, coulour, ship)
+	local spread = Vector3.new(math.random(-100,100)/60,math.random(-100,100)/60,math.random(-100,100)/60)
+	local ray = Ray.new(brlpos,((hitPos - brlpos).unit) * 250)
+	local part, pos = workspace:FindPartOnRay(ray, playa.Character,false,true)
+	
+	local beam = Instance.new("Part", ship.Main)
+	beam.BrickColor = coulour
+	beam.FormFactor = "Custom"
+	beam.Material = "Neon"
+	beam.Anchored = true
+	beam.Locked = true
+	beam.CanCollide = false
+	beam.Name = "Beam"
+	
+	local distance = (brlpos - pos).magnitude
+	local mesh = Instance.new("BlockMesh")
+	mesh.Scale = Vector3.new(1,1,distance * 5)
+	mesh.Parent = beam
+	beam.Size = Vector3.new(0.2,0.2,0.2)
+	beam.CFrame = CFrame.new(brlpos ,pos) * CFrame.new(0, 0, -distance / 2)
+
+	if soundID ~= 0 then
+		local party = Instance.new("Part")
+		party.Size, party.CanCollide, party.Anchored, party.Transparency, party.Locked = Vector3.new(0.2, 0.2, 0.2), false, true, 1, true
+		party.Position = pos + Vector3.new(0, 0.5, 0)
+		
+		local soundy = Instance.new("Sound")
+		soundy.SoundId = soundID
+		soundy.PlaybackSpeed = pitch
+		soundy.Volume = volume
+		soundy.MaxDistance = 100
+		soundy.Looped = true
+		soundy.Name = "Buzz"
+
+		party.Parent = workspace
+		soundy.Parent = party
+		
+		soundy:play()
+	end
+end)
+
+--Creating a Rocket projectile
+local remoteR = repStor:WaitForChild("RocketEvent")
+
+remoteR.OnServerEvent:connect(function(p, rockFrame, rockCol, rockLvl)
+	local prjctl = script.Rocket:clone()
+	prjctl.CFrame = rockFrame
+	prjctl.BrickColor = rockCol
+	prjctl.Boom.Value = rockLvl
+
+	local rv = Instance.new("BodyVelocity")
+	rv.velocity = (prjctl.CFrame.lookVector * 700)
+	rv.maxForce = Vector3.new(4e+009, 4e+009, 4e+009)
+	rv.Parent = prjctl
+	
+	prjctl.RocketScript.Disabled = false	
+	prjctl.Parent = game.Workspace
+end)
+
+--Recolor Handle (matches a weapon's color to that of the player's team)
+local remoteC = repStor:WaitForChild("ColorEvent")
+
+remoteC.OnServerEvent:connect(function(p, thing, coulour)
+	if thing.className == "Part" then
+		thing.BrickColor = coulour
+	elseif thing.className == "SpecialMesh" then
+		local cola3 = coulour.Color
+		thing.VertexColor = Vector3.new(cola3.r, cola3.g, cola3.b)
+	end
+end)
+
+--Changing the player backpack's Fuel amount
+local remoteF = repStor:WaitForChild("FuelEvent")
+
+remoteF.OnServerEvent:connect(function(p, dir, amt)
+	local fuelTank = p.FuelTank
+	local newFuel = tonumber(string.format("%2.1f", (p.FuelTank.Value.X + (dir * amt))))
+	local maxFuel = p.FuelTank.Value.Y
+	if newFuel < 0 then
+		newFuel = 0
+	elseif newFuel > maxFuel then
+		newFuel = maxFuel
+	end
+	fuelTank.Value = Vector3.new(newFuel, maxFuel, fuelTank.Value.Z)	
+end)
+
+--Changing the spaceship's Fuel amount
+local remoteShipF = repStor:WaitForChild("ShipFEvent")
+
+remoteShipF.OnServerEvent:connect(function(p, playn, dir, amt)
+	local fuelTank = playn.Fuel
+	local newFuel = tonumber(string.format("%2.1f", (playn.Fuel.Value.X + (dir * amt))))
+	local maxFuel = playn.Fuel.Value.Y
+	if newFuel < 0 then
+		newFuel = 0
+	elseif newFuel > maxFuel then
+		newFuel = maxFuel
+	end
+	fuelTank.Value = Vector3.new(newFuel, maxFuel, fuelTank.Value.Z)	
+end)
+
+--Changing the player's Team
+local remoteT = repStor:WaitForChild("TeamEvent")
+
+remoteT.OnServerEvent:connect(function(p, tema)
+	p.TeamColor = tema.TeamColor
+end)
